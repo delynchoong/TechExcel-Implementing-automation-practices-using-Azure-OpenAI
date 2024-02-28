@@ -21,22 +21,45 @@ public class CosmosService : ICosmosService
 
     public async Task<IEnumerable<Customer>> GetCustomersByName(string name)
     {
-        throw new NotImplementedException();
+        var queryable = container.GetItemLinqQueryable<Customer>();
+        using FeedIterator<Customer> feed = queryable
+            .Where(c => c.FullName == name)
+            .ToFeedIterator<Customer>();
+        return await ExecuteQuery(feed);
     }
 
     public async Task<IEnumerable<Customer>> GetCustomersByLoyaltyTier(string loyaltyTier)
     {
-        throw new NotImplementedException();
+        LoyaltyTier lt = Enum.Parse<LoyaltyTier>(loyaltyTier);
+        var queryable = container.GetItemLinqQueryable<Customer>();
+        using FeedIterator<Customer> feed = queryable
+            .Where(c => c.LoyaltyTier.ToString() == loyaltyTier)
+            .ToFeedIterator<Customer>();
+        return await ExecuteQuery(feed);
     }
 
     public async Task<IEnumerable<Customer>> GetCustomersWithStaysAfterDate(DateTime dt)
     {
-        throw new NotImplementedException();
+        var queryable = container.GetItemLinqQueryable<Customer>();
+        using FeedIterator<Customer> feed = queryable
+            .Where(c => c.DateOfMostRecentStay > dt)
+            .ToFeedIterator<Customer>();
+        return await ExecuteQuery(feed);
     }
 
     private async Task<IEnumerable<Customer>> ExecuteQuery(FeedIterator<Customer> feed)
     {
-        throw new NotImplementedException();
+        List<Customer> results = new();
+        while (feed.HasMoreResults)
+        {
+            var response = await feed.ReadNextAsync();
+            foreach (Customer c in response)
+            {
+                results.Add(c);
+            }
+        }
+        return results;
     }
+
     
 }

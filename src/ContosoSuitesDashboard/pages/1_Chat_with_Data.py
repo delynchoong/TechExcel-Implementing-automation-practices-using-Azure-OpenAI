@@ -39,8 +39,36 @@ def create_chat_completion(deployment_name, messages, endpoint, key, index_name)
     #    stream=True,
     #    TODO: fill in rest of function call
     #)
-    
-    raise NotImplementedError
+    # Create an Azure OpenAI client. We create it in here because each exercise will
+    # require at a minimum different base URLs.
+    client = openai.AzureOpenAI(
+        base_url=f"{aoai_endpoint}/openai/deployments/{deployment_name}/extensions/",
+        api_key=aoai_api_key,
+        api_version="2023-12-01-preview"
+    )
+    # Create and return a new chat completion request
+    # Be sure to include the "extra_body" parameter to use Azure AI Search as the data source
+    return client.chat.completions.create(
+        model=deployment_name,
+        messages=[
+            {"role": m["role"], "content": m["content"]}
+            for m in messages
+        ],
+        stream=True,
+        extra_body={
+            "dataSources": [
+                {
+                    "type": "AzureCognitiveSearch",
+                    "parameters": {
+                        "endpoint": endpoint,
+                        "key": key,
+                        "indexName": index_name,
+                    }
+                }
+            ]
+        }
+    )
+
 
 def handle_chat_prompt(prompt):
     # Echo the user's prompt to the chat window
@@ -58,13 +86,29 @@ def handle_chat_prompt(prompt):
     #    full_response = ""
     #    for response in ... TODO: finish call
     #st.session_state.messages.append({"role": "assistant", "content": full_response})
+    # Echo the user's prompt to the chat window
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    # Send the user's prompt to Azure OpenAI and display the response
+    # The call to Azure OpenAI is handled in create_chat_completion()
+    # This function loops through the responses and displays them as they come in.
+    # It also appends the full response to the chat history.
+    with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        full_response = ""
+        for response in create_chat_completion(deployment_name, st.session_state.messages, config["SearchEndpoint"], config["SearchKey"], config["SearchIndex"]):
+            full_response += (response.choices[0].delta.content or "")
+            message_placeholder.markdown(full_response + "▌")
+        message_placeholder.markdown(full_response)
+    st.session_state.messages.append({"role": "assistant", "content": full_response})
     
-    raise NotImplementedError
 
 ### Exercise 03: Function calls
 def get_customers(search_criterion, search_value):
     # Set up the API request
-    full_server_url = f"TODO: fill this in"
+    full_server_url = f"http://localhost:5292/Customer/?searchCriterion={search_criterion}&searchValue={search_value}"
     r = requests.get(
         full_server_url,
         headers={"Content-Type": "application/json"}
@@ -73,10 +117,20 @@ def get_customers(search_criterion, search_value):
         return st.write(pd.read_json(r.content.decode("utf-8")))
     else:
         return f"Failure to find any customers with {search_criterion} {search_value}."
-
-# TODO: fill in the function call definition
 functions = [
-]
+      {
+          "name": "get_customers",
+          "description": "Get a list of customers based on some search criterion.",
+          "parameters": {
+              "type": "object",
+              "properties": {
+                  "search_criterion": {"type": "string", "enum": ["CustomerName", "LoyaltyTier", "DateOfMostRecentStay"]},
+                  "search_value": {"type": "string"},
+              },
+              "required": ["search_criterion", "search_value"],
+          },
+      }
+  ]
 
 available_functions = {
     "get_customers": get_customers,
@@ -85,25 +139,23 @@ available_functions = {
 def create_chat_completion_with_functions(deployment_name, messages):
     # Create an Azure OpenAI client. We create it in here because each exercise will
     # require at a minimum different base URLs.
-    
-    #client = openai.AzureOpenAI(
-    #    base_url=f"{aoai_endpoint}/openai/deployments/{deployment_name}/",
-    #    TODO: fill in rest of parameters
-    #)
-    
+    client = openai.AzureOpenAI(
+        base_url=f"{aoai_endpoint}/openai/deployments/{deployment_name}/",
+        api_key=aoai_api_key,
+        api_version="2023-12-01-preview"
+    )
     # Create and return a new chat completion request
     # Be sure to include the "functions" parameter and set "function_call"
+    return client.chat.completions.create(
+        model=deployment_name,
+        messages=[
+            {"role": m["role"], "content": m["content"]}
+            for m in messages
+        ],
+        functions=functions,
+        function_call="auto",
+    )
 
-    #return client.chat.completions.create(
-    #    model=deployment_name,
-    #    messages=[
-    #        {"role": m["role"], "content": m["content"]}
-    #        for m in messages
-    #    ],
-    #    TODO: fill in rest of function call
-    #)
-    
-    raise NotImplementedError
 
 def handle_chat_prompt_with_functions(prompt):
     # Echo the user's prompt to the chat window
@@ -116,32 +168,34 @@ def handle_chat_prompt_with_functions(prompt):
     # This function loops through the responses and displays them as they come in.
     # It also appends the full response to the chat history.
 
-    #with st.chat_message("assistant"):
-    #    message_placeholder = st.empty()
-    #    full_response = ""
-    #    response = TODO: finish call and extract message as response_message
-    #
-    #    # Check if GPT returned a function call
-    #    if response_message.function_call:
-    #        # Get the function name and arguments
-    #        TODO: fill in code
-    #
-    #        # Verify the function
-    #        if function_name not in available_functions:
-    #            full_response = f"Sorry, I don't know how to call the function `{function_name}`."
-    #        else:
-    #            function_to_call = available_functions[function_name]
-    #            # Verify the function has the correct number of arguments
-    #            function_args = json.loads(response_message.function_call.arguments)
-    #            if check_args(function_to_call, function_args) is False:
-    #                full_response = f"Sorry, I don't know how to call the function `{function_name}` with those arguments."
-    #            else:
-    #                # Call the function
-    #                full_response = function_to_call(**function_args)
-    #message_placeholder.markdown(full_response)
-    #st.session_state.messages.append({"role": "assistant", "content": full_response})
+    # Send the user's prompt to Azure OpenAI and display the response
+    # The call to Azure OpenAI is handled in create_chat_completion()
+    # This function loops through the responses and displays them as they come in.
+    # It also appends the full response to the chat history.
+    with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        full_response = ""
+        response = create_chat_completion_with_functions(deployment_name, st.session_state.messages)
+        response_message = response.choices[0].message
 
-    raise NotImplementedError
+        # Check if GPT returned a function call
+        if response_message.function_call:
+            # Get the function name and arguments
+            function_name = response_message.function_call.name
+            # Verify the function
+            if function_name not in available_functions:
+                full_response = f"Sorry, I don't know how to call the function `{function_name}`."
+            else:
+                function_to_call = available_functions[function_name]
+                # Verify the function has the correct number of arguments
+                function_args = json.loads(response_message.function_call.arguments)
+                if check_args(function_to_call, function_args) is False:
+                    full_response = f"Sorry, I don't know how to call the function `{function_name}` with those arguments."
+                else:
+                    # Call the function
+                    full_response = function_to_call(**function_args)
+    message_placeholder.markdown(full_response)
+    st.session_state.messages.append({"role": "assistant", "content": full_response}) 
 
 # helper method used to check if the correct arguments are provided to a function
 def check_args(function, args):
@@ -165,37 +219,32 @@ def recognize_from_microphone(speech_key, speech_region, speech_recognition_lang
     # Create an instance of a speech config with specified subscription key and service region.
     # Then set the speech recognition language to speech_recognition_language.
 
-    # TODO: fill in code
-    # speech_config = ...
+    # Create an instance of a speech config with specified subscription key and service region.
+    speech_config = speechsdk.SpeechConfig(subscription=speech_key, region=speech_region)
+    speech_config.speech_recognition_language=speech_recognition_language
 
     # Create a microphone instance and speech recognizer.
-
-    # TODO: fill in code
-    # audio_config = ...
-    # speech_recognizer = ...
+    audio_config = speechsdk.audio.AudioConfig(use_default_microphone=True)
+    speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config, audio_config=audio_config)
 
     # Start speech recognition
-
-    # print("Speak into your microphone.")
-    # speech_recognition_result = speech_recognizer.recognize_once_async().get()
+    print("Speak into your microphone.")
+    speech_recognition_result = speech_recognizer.recognize_once_async().get()
 
     # Check the result
-
-    # if speech_recognition_result.reason == speechsdk.ResultReason.RecognizedSpeech:
-    #     print("Recognized: {}".format(speech_recognition_result.text))
-    #     return ...
-    # elif speech_recognition_result.reason == speechsdk.ResultReason.NoMatch:
-    #     print("No speech could be recognized: {}".format(speech_recognition_result.no_match_details))
-    #     return ...
-    # elif speech_recognition_result.reason == speechsdk.ResultReason.Canceled:
-    #     cancellation_details = speech_recognition_result.cancellation_details
-    #     print("Speech Recognition canceled: {}".format(cancellation_details.reason))
-    #     if cancellation_details.reason == speechsdk.CancellationReason.Error:
-    #         print("Error details: {}".format(cancellation_details.error_details))
-    #         print("Did you set the speech resource key and region values?")
-    #     return ...
-    
-    raise NotImplementedError
+    if speech_recognition_result.reason == speechsdk.ResultReason.RecognizedSpeech:
+        print("Recognized: {}".format(speech_recognition_result.text))
+        return speech_recognition_result.text
+    elif speech_recognition_result.reason == speechsdk.ResultReason.NoMatch:
+        print("No speech could be recognized: {}".format(speech_recognition_result.no_match_details))
+        return None
+    elif speech_recognition_result.reason == speechsdk.ResultReason.Canceled:
+        cancellation_details = speech_recognition_result.cancellation_details
+        print("Speech Recognition canceled: {}".format(cancellation_details.reason))
+        if cancellation_details.reason == speechsdk.CancellationReason.Error:
+            print("Error details: {}".format(cancellation_details.error_details))
+            print("Did you set the speech resource key and region values?")
+        return None
     
 
 ### All Exercises
@@ -231,8 +280,11 @@ def main():
     # Note that Streamlit does not have a great interface for keeping chat in a specific location
     # so using this button will cause it to be in an awkward position after the first message.
     
-    # TODO: complete this section
-    # if st.button("Speech to text"):
+    # add speech button
+    if st.button("Speech to text"):
+        speech_contents = recognize_from_microphone(speech_key, speech_region)
+        if speech_contents:
+            handle_prompt(chat_option, speech_contents)
 
     # Await a user message and handle the chat prompt when it comes in.
     if prompt := st.chat_input("Enter a message:"):

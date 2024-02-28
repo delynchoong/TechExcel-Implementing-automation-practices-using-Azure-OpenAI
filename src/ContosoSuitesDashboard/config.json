@@ -1,12 +1,12 @@
 {
-    "AOAIEndpoint": "TODO",
-    "AOAIKey": "TODO",
-    "AOAIDeploymentName": "TODO",
-    "SearchEndpoint": "TODO",
-    "SearchKey": "TODO",
-    "SearchIndex": "TODO",
-    "SpeechKey": "TODO",
-    "SpeechRegion": "TODO",
-    "LanguageEndpoint": "TODO",
-    "LanguageKey": "TODO"
+    "AOAIEndpoint": "https://swedcent-techexcellab-openai-02.openai.azure.com/",
+    "AOAIKey": "27141acfe6184f2f8b5b1882c8aa49b2",
+    "AOAIDeploymentName": "gpt-4",
+    "SearchEndpoint": "https://4amflj3qetnuq-search.search.windows.net",
+    "SearchKey": "2AqXP5apCNEB5JTFsBar1okyD5nb2BMqeewBhFk9IBAzSeBpcSEf",
+    "SearchIndex": "resorts",
+    "SpeechKey": "e2814c8f631a4b93a9af34e415d2abe3",
+    "SpeechRegion": "swedencentral",
+    "LanguageEndpoint": "https://swedcent-language-techexcellab-01.cognitiveservices.azure.com/",
+    "LanguageKey": "7266354be5044f45b4d58b0608ba6bdd"
 }
